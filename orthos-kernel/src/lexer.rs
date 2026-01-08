@@ -147,17 +147,9 @@ pub enum Token {
     At,
 }
 
-pub struct Lexer<'a> {
-    inner: logos::Lexer<'a, Token>,
-}
+pub struct Lexer;
 
-impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self {
-            inner: Token::lexer(input),
-        }
-    }
-    
+impl Lexer {
     pub fn tokenize(input: &str) -> Result<Vec<(Token, std::ops::Range<usize>)>, String> {
         let mut tokens = Vec::new();
         let mut lexer = Token::lexer(input);

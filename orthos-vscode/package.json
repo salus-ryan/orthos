@@ -85,6 +85,16 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically initialize the daemon when opening .orth files."
+        },
+        "orthos.lspPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to orthos-lsp binary. Leave empty to auto-detect."
+        },
+        "orthos.enableLsp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Language Server for real-time diagnostics and inlay hints."
         }
       }
     }
@@ -94,6 +104,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

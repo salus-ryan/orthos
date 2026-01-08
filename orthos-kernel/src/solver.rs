@@ -332,7 +332,7 @@ impl<'ctx> OrthosSolver<'ctx> {
                 }
             }
             Expr::IndexAccess(array, index) => {
-                let idx = self.build_int_expr(index, prefix)?;
+                let _idx = self.build_int_expr(index, prefix)?;
                 // For now, we need to handle this with concrete indices
                 // This is a limitation - we'd need array theory for full support
                 if let Expr::IntLit(i) = index.as_ref() {

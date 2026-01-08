@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use z3::{ast::{Ast, Bool, Int}, Config, Context, Optimize, SatResult};
 
-use orthos_kernel::{parse, Boundary, Expr, GoalDecl, Program, Type, MAX_LIST_SIZE};
+use orthos_kernel::{parse, Boundary, Expr, Program, Type, MAX_LIST_SIZE};
 
 #[derive(Debug)]
 pub struct InitError {
@@ -14,6 +14,7 @@ pub struct ConstrainError {
     pub conflicts: Vec<String>,
 }
 
+#[allow(dead_code)]
 pub struct GoalInfo {
     pub name: String,
     pub weight: u32,

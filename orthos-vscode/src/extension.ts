@@ -2,16 +2,28 @@ import * as vscode from 'vscode';
 import { OrthosDaemon } from './daemon';
 import { OrthosStatusBar } from './statusBar';
 import { OrthosOutputChannel } from './output';
+import { startLspClient, stopLspClient } from './lspClient';
 
 let daemon: OrthosDaemon | undefined;
 let statusBar: OrthosStatusBar;
 let output: OrthosOutputChannel;
+let lspStarted = false;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     output = new OrthosOutputChannel();
     statusBar = new OrthosStatusBar();
     
     output.log('Orthos extension activated');
+    
+    // Start LSP client for real-time diagnostics and inlay hints
+    try {
+        lspStarted = await startLspClient(context);
+        if (lspStarted) {
+            output.log('LSP client started - diagnostics and inlay hints enabled');
+        }
+    } catch (err) {
+        output.log(`LSP client failed to start: ${err}`);
+    }
     
     // Register commands
     context.subscriptions.push(
@@ -264,6 +276,7 @@ async function shutdownCommand() {
     }
 }
 
-export function deactivate() {
+export async function deactivate() {
+    await stopLspClient();
     daemon?.shutdown();
 }
