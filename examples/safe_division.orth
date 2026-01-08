@@ -1,0 +1,27 @@
+// ORTHOS Example: Safe Division
+// Demonstrates constraint-based computation where division by zero
+// is an ontological impossibility, not a runtime error.
+
+Boundary SafeMath {
+    Flux numerator : Int
+    Flux denominator : Int
+    Flux result : Int
+
+    // Attempting to divide by zero makes the timeline invalid.
+    Law NonZero : denominator != 0
+    
+    // The fundamental relation: result * denominator == numerator
+    // The solver finds 'result' such that this holds.
+    Law Relation : result * denominator == numerator
+}
+
+Boundary Main {
+    Manifest execution {
+        Flux x = 10
+        Flux y = 2
+        
+        // Instantiate SafeMath and extract result
+        // The solver will find result = 5
+        Flux res = SafeMath(numerator=x, denominator=y).result
+    }
+}

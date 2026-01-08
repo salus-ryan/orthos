@@ -1,0 +1,8 @@
+// ORTHOS Example: Ontological Contradiction
+// This program asserts 1 == 2, which is impossible.
+// The solver MUST reject this as UNSAT.
+// Success Metric from spec: "Law: 1 == 2 must fail to compile with output UNSAT"
+
+Boundary Impossible {
+    Law Contradiction : 1 == 2
+}

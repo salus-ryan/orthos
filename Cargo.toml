@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "orthos-kernel",
+    "orthos-daemon",
+]
+resolver = "2"

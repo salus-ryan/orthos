@@ -1,0 +1,21 @@
+// ORTHOS Example: Division by Zero (UNSAT)
+// This program defines an impossible universe.
+// The solver will reject it as UNSAT.
+
+Boundary SafeMath {
+    Flux numerator : Int
+    Flux denominator : Int
+    Flux result : Int
+
+    Law NonZero : denominator != 0
+    Law Relation : result * denominator == numerator
+}
+
+Boundary Main {
+    Manifest execution {
+        Flux x = 10
+        Flux y = 0  // This violates NonZero!
+        
+        Flux res = SafeMath(numerator=x, denominator=y).result
+    }
+}

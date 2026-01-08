@@ -1,0 +1,43 @@
+// ORTHOS Example: Autonomous Greenhouse (Homeostasis Loop)
+// Demonstrates constraint-based control - the agent doesn't "decide",
+// it insists on survival and the actuators become necessary consequences.
+
+Boundary Greenhouse <-> {
+    // === CURRENT STATE (Sensor Readings) ===
+    Flux TempNow : Int          // Current temperature reading
+    Flux MoistureNow : Int      // Current moisture reading
+    
+    // === PREDICTED NEXT STATE (After actuator effects) ===
+    Flux TempNext : Int         // Temperature after this cycle
+    Flux MoistureNext : Int     // Moisture after this cycle
+    
+    // === ACTUATORS (Hardware Control) ===
+    Flux Heater : Bool          // true = ON, false = OFF
+    Flux Cooler : Bool          // true = ON, false = OFF  
+    Flux Sprinkler : Bool       // true = ON, false = OFF
+    
+    // === PHYSICS LAWS (How actuators affect state) ===
+    // Heater adds ~3 degrees, otherwise temp drifts down by ~1
+    Law HeaterPhysics : Heater == true implies TempNext >= TempNow + 2
+    Law HeaterOff : Heater == false implies TempNext <= TempNow
+    
+    // Cooler removes ~3 degrees
+    Law CoolerPhysics : Cooler == true implies TempNext <= TempNow - 2
+    Law CoolerOff : Cooler == false implies TempNext >= TempNow - 2
+    
+    // Sprinkler adds ~15% moisture, otherwise it evaporates ~3%
+    Law SprinklerPhysics : Sprinkler == true implies MoistureNext >= MoistureNow + 10
+    Law SprinklerOff : Sprinkler == false implies MoistureNext <= MoistureNow
+    Law MoistureDecay : MoistureNext >= MoistureNow - 5
+    
+    // === SURVIVAL LAWS (The Plant's Will to Live) ===
+    // The NEXT state must be survivable
+    Law TempMin : TempNext >= 18
+    Law TempMax : TempNext <= 28
+    Law MoistureMin : MoistureNext >= 30
+    Law MoistureMax : MoistureNext <= 70
+    
+    // === EFFICIENCY LAWS (Don't waste energy) ===
+    // Don't run heater and cooler simultaneously
+    Law NoConflict : !(Heater == true && Cooler == true)
+}

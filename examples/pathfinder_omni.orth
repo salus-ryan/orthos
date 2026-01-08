@@ -1,0 +1,39 @@
+// ORTHOS Example: PathFinder with Omni Mode (Retro-causal)
+// Demonstrates the Causal Diode - the solver can "work backwards"
+// to find values that satisfy the constraints.
+
+Boundary Point {
+    Flux x : Int
+    Flux y : Int
+}
+
+// Omni mode: the solver can mutate ANY flux to satisfy laws
+Boundary PathFinder <-> {
+    Flux start_x : Int
+    Flux start_y : Int
+    Flux end_x : Int
+    Flux end_y : Int
+    
+    // Intermediate waypoints (simplified path)
+    Flux mid_x : Int
+    Flux mid_y : Int
+    
+    // Path must be connected (Manhattan distance constraint)
+    // Each step can only move by 1 in x or y
+    Law ValidStep1 : (mid_x - start_x) * (mid_x - start_x) + (mid_y - start_y) * (mid_y - start_y) <= 2
+    Law ValidStep2 : (end_x - mid_x) * (end_x - mid_x) + (end_y - mid_y) * (end_y - mid_y) <= 2
+    
+    // Bounds to keep search tractable
+    Law BoundX : mid_x >= 0 && mid_x <= 10
+    Law BoundY : mid_y >= 0 && mid_y <= 10
+}
+
+// Main is Forward by default - inputs are fixed
+Boundary Main {
+    Manifest execution {
+        // Find a path from (0,0) to (2,2)
+        // The solver will find mid_x, mid_y that connects them
+        Flux route_mid_x = PathFinder(start_x=0, start_y=0, end_x=2, end_y=2).mid_x
+        Flux route_mid_y = PathFinder(start_x=0, start_y=0, end_x=2, end_y=2).mid_y
+    }
+}

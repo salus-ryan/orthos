@@ -1,0 +1,28 @@
+// ORTHOS Example: Inverse Problem Solving (Omni Mode)
+// Given a result, find the inputs that produce it.
+// This demonstrates retro-causality in action.
+
+Boundary Quadratic <-> {
+    Flux a : Int
+    Flux b : Int
+    Flux c : Int
+    Flux x : Int
+    Flux result : Int
+    
+    // Quadratic formula: result = a*x^2 + b*x + c
+    Law Formula : result == a * x * x + b * x + c
+    
+    // Bounds for tractability
+    Law BoundA : a >= -10 && a <= 10
+    Law BoundB : b >= -10 && b <= 10
+    Law BoundC : c >= -10 && c <= 10
+    Law BoundX : x >= -10 && x <= 10
+}
+
+Boundary Main {
+    Manifest execution {
+        // Given result = 0, find x such that x^2 - 4 = 0
+        // The solver should find x = 2 or x = -2
+        Flux solution = Quadratic(a=1, b=0, c=-4, result=0).x
+    }
+}

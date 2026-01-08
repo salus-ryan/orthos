@@ -1,0 +1,19 @@
+[package]
+name = "orthos-daemon"
+version = "0.1.0"
+edition = "2021"
+description = "ORTHOS Oracle Server - Incremental constraint solving daemon"
+
+[dependencies]
+# Core kernel (shared AST, parser, solver logic)
+orthos-kernel = { path = "../orthos-kernel" }
+
+# Z3 theorem prover
+z3 = "0.12"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"

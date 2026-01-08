@@ -1,0 +1,34 @@
+// ORTHOS Example: Fibonacci Sequence
+// Demonstrates temporal unrolling (SSA form) for iterative computation.
+// No loops - just constraints across time steps.
+
+Boundary Fibonacci {
+    // Fibonacci values at different time steps
+    Flux f0 : Int
+    Flux f1 : Int
+    Flux f2 : Int
+    Flux f3 : Int
+    Flux f4 : Int
+    Flux f5 : Int
+    Flux f6 : Int
+    Flux f7 : Int
+    
+    // Base cases
+    Law Base0 : f0 == 0
+    Law Base1 : f1 == 1
+    
+    // Recurrence relation unrolled
+    Law Step2 : f2 == f0 + f1
+    Law Step3 : f3 == f1 + f2
+    Law Step4 : f4 == f2 + f3
+    Law Step5 : f5 == f3 + f4
+    Law Step6 : f6 == f4 + f5
+    Law Step7 : f7 == f5 + f6
+}
+
+Boundary Main {
+    Manifest execution {
+        // The solver will compute: 0, 1, 1, 2, 3, 5, 8, 13
+        Flux result = Fibonacci().f7
+    }
+}

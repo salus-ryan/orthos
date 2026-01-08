@@ -1,0 +1,16 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# VS Code extension
+orthos-vscode/node_modules/
+orthos-vscode/out/
+orthos-vscode/*.vsix
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+*.swp
