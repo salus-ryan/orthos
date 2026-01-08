@@ -1,0 +1,16 @@
+# ORTHOS Home Assistant Entity Mappings
+# Maps Orthos Flux names to Home Assistant entity IDs
+
+# Sensors - read current state from these entities
+sensors:
+  Temperature: sensor.living_room_temperature
+  LightLevel: sensor.living_room_illuminance
+  Humidity: sensor.living_room_humidity
+  Occupancy: binary_sensor.living_room_occupancy
+
+# Actuators - ORTHOS controls these entities
+actuators:
+  Heater: climate.living_room_thermostat
+  Cooler: climate.living_room_ac
+  Lights: light.living_room_main
+  Humidifier: switch.humidifier

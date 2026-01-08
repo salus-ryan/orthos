@@ -1,0 +1,48 @@
+# ORTHOS Platform Docker Compose
+# Includes daemon, bridge, and Home Assistant integration
+
+version: '3.8'
+
+services:
+  # TCP/WebSocket bridge (includes daemon binary)
+  orthos-bridge:
+    build:
+      context: .
+      dockerfile: orthos-bridge/Dockerfile
+    container_name: orthos-bridge
+    restart: unless-stopped
+    ports:
+      - "7777:7777"   # TCP JSON-RPC
+      - "7778:7778"   # WebSocket
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - ./std:/home/orthos/std:ro
+      - ./examples:/home/orthos/examples:ro
+    networks:
+      - orthos-net
+
+  # Home Assistant Integration Service
+  orthos-hass:
+    build:
+      context: .
+      dockerfile: orthos-hass/Dockerfile
+    container_name: orthos-hass
+    restart: unless-stopped
+    environment:
+      - HASS_URL=${HASS_URL:-http://homeassistant.local:8123}
+      - HASS_TOKEN=${HASS_TOKEN}
+      - ORTHOS_BRIDGE_URL=ws://orthos-bridge:7778
+      - COMFORT_TEMP_MIN=${COMFORT_TEMP_MIN:-20}
+      - COMFORT_TEMP_MAX=${COMFORT_TEMP_MAX:-24}
+      - COMFORT_LIGHT_MIN=${COMFORT_LIGHT_MIN:-30}
+    volumes:
+      - ./orthos-hass/rules:/app/rules:ro
+    depends_on:
+      - orthos-bridge
+    networks:
+      - orthos-net
+
+networks:
+  orthos-net:
+    driver: bridge

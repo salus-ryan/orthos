@@ -1,0 +1,237 @@
+// ORTHOS Standard Library: Physics
+// Foundational physical concepts as reusable constraint boundaries.
+// Import these to constrain objects with real-world physics semantics.
+
+// === VELOCITY ===
+// Represents motion in 1D space with position, velocity, and time relationships.
+Boundary Velocity <-> {
+    // State variables
+    Flux position : Int          // Current position
+    Flux velocity : Int          // Rate of change of position
+    Flux time : Int              // Time step
+    Flux nextPosition : Int      // Position at next time step
+    
+    // Kinematic law: position changes by velocity per time unit
+    Law Kinematics : nextPosition == position + velocity * time
+    
+    // Time must be non-negative
+    Law TimePositive : time >= 0
+}
+
+// === VELOCITY 2D ===
+// Two-dimensional motion with x and y components.
+Boundary Velocity2D <-> {
+    // Position components
+    Flux posX : Int
+    Flux posY : Int
+    
+    // Velocity components
+    Flux velX : Int
+    Flux velY : Int
+    
+    // Time step
+    Flux dt : Int
+    
+    // Next position
+    Flux nextPosX : Int
+    Flux nextPosY : Int
+    
+    // Kinematic laws for each axis
+    Law KinematicsX : nextPosX == posX + velX * dt
+    Law KinematicsY : nextPosY == posY + velY * dt
+    
+    Law TimePositive : dt >= 0
+}
+
+// === MASS ===
+// Represents an object with mass, subject to forces and acceleration.
+Boundary Mass <-> {
+    // Properties
+    Flux mass : Int              // Mass of the object (must be positive)
+    Flux force : Int             // Net force applied
+    Flux acceleration : Int      // Resulting acceleration
+    
+    // Newton's Second Law: F = ma
+    Law NewtonSecond : force == mass * acceleration
+    
+    // Mass must be positive
+    Law MassPositive : mass > 0
+}
+
+// === MOMENTUM ===
+// Conservation of momentum for a single body.
+Boundary Momentum <-> {
+    Flux mass : Int
+    Flux velocity : Int
+    Flux momentum : Int
+    
+    // Definition of momentum: p = mv
+    Law MomentumDef : momentum == mass * velocity
+    
+    Law MassPositive : mass > 0
+}
+
+// === COLLISION 1D ===
+// Elastic collision between two bodies in 1D.
+// Conserves both momentum and kinetic energy.
+Boundary Collision1D <-> {
+    // Body A properties
+    Flux massA : Int
+    Flux velA_before : Int
+    Flux velA_after : Int
+    
+    // Body B properties
+    Flux massB : Int
+    Flux velB_before : Int
+    Flux velB_after : Int
+    
+    // Conservation of Momentum: m1*v1 + m2*v2 = m1*v1' + m2*v2'
+    Law MomentumConservation : 
+        massA * velA_before + massB * velB_before == 
+        massA * velA_after + massB * velB_after
+    
+    // For elastic collision, relative velocity reverses
+    // v1' - v2' = -(v1 - v2)
+    Law ElasticCollision :
+        velA_after - velB_after == -(velA_before - velB_before)
+    
+    // Masses must be positive
+    Law MassAPositive : massA > 0
+    Law MassBPositive : massB > 0
+}
+
+// === INELASTIC COLLISION ===
+// Perfectly inelastic collision where bodies stick together.
+Boundary InelasticCollision <-> {
+    // Body A properties
+    Flux massA : Int
+    Flux velA : Int
+    
+    // Body B properties
+    Flux massB : Int
+    Flux velB : Int
+    
+    // Combined final velocity
+    Flux velFinal : Int
+    
+    // Conservation of Momentum (bodies move together after)
+    Law MomentumConservation :
+        massA * velA + massB * velB == (massA + massB) * velFinal
+    
+    Law MassAPositive : massA > 0
+    Law MassBPositive : massB > 0
+}
+
+// === GRAVITY ===
+// Gravitational acceleration and free fall.
+Boundary Gravity <-> {
+    Flux height : Int            // Current height
+    Flux velocity : Int          // Current vertical velocity
+    Flux gravity : Int           // Gravitational acceleration (negative = downward)
+    Flux time : Int              // Time elapsed
+    Flux nextHeight : Int        // Height after time
+    Flux nextVelocity : Int      // Velocity after time
+    
+    // Kinematic equations for constant acceleration
+    Law VelocityUpdate : nextVelocity == velocity + gravity * time
+    Law HeightUpdate : nextHeight == height + velocity * time + (gravity * time * time) / 2
+    
+    // Standard Earth gravity approximation (can be overridden)
+    Goal StandardGravity : gravity == -10 @1
+    
+    Law TimePositive : time >= 0
+}
+
+// === ENERGY ===
+// Kinetic and potential energy relationships.
+Boundary Energy <-> {
+    Flux mass : Int
+    Flux velocity : Int
+    Flux height : Int
+    Flux gravity : Int
+    
+    Flux kineticEnergy : Int     // KE = (1/2)mv^2
+    Flux potentialEnergy : Int   // PE = mgh
+    Flux totalEnergy : Int       // Total mechanical energy
+    
+    // Energy definitions (using 2x to avoid fractions)
+    Law KineticDef : kineticEnergy * 2 == mass * velocity * velocity
+    Law PotentialDef : potentialEnergy == mass * gravity * height
+    Law TotalDef : totalEnergy == kineticEnergy + potentialEnergy
+    
+    Law MassPositive : mass > 0
+}
+
+// === SPRING ===
+// Hooke's Law for spring mechanics.
+Boundary Spring <-> {
+    Flux displacement : Int      // Distance from equilibrium
+    Flux springConstant : Int    // k (stiffness)
+    Flux force : Int             // Restoring force
+    
+    // Hooke's Law: F = -kx
+    Law HookesLaw : force == -springConstant * displacement
+    
+    Law SpringConstantPositive : springConstant > 0
+}
+
+// === FRICTION ===
+// Static and kinetic friction constraints.
+Boundary Friction <-> {
+    Flux normalForce : Int       // Normal force (perpendicular to surface)
+    Flux frictionCoeff : Int     // Coefficient of friction (scaled by 100)
+    Flux maxFriction : Int       // Maximum friction force
+    Flux appliedForce : Int      // Force trying to move object
+    Flux isMoving : Bool         // Whether object is in motion
+    
+    // Maximum friction = μN (scaled)
+    Law MaxFrictionDef : maxFriction * 100 == frictionCoeff * normalForce
+    
+    // Object moves only if applied force exceeds max friction
+    Law MotionCondition : isMoving == true implies appliedForce > maxFriction
+    Law StationaryCondition : isMoving == false implies appliedForce <= maxFriction
+    
+    Law NormalPositive : normalForce >= 0
+    Law CoeffPositive : frictionCoeff >= 0
+}
+
+// === PRESSURE ===
+// Pressure, force, and area relationships.
+Boundary Pressure <-> {
+    Flux force : Int
+    Flux area : Int
+    Flux pressure : Int
+    
+    // P = F/A (using multiplication to avoid division)
+    Law PressureDef : pressure * area == force
+    
+    Law AreaPositive : area > 0
+}
+
+// === DENSITY ===
+// Mass, volume, and density relationships.
+Boundary Density <-> {
+    Flux mass : Int
+    Flux volume : Int
+    Flux density : Int
+    
+    // ρ = m/V
+    Law DensityDef : density * volume == mass
+    
+    Law VolumePositive : volume > 0
+    Law MassPositive : mass > 0
+}
+
+// === WAVE ===
+// Wave properties: frequency, wavelength, velocity.
+Boundary Wave <-> {
+    Flux frequency : Int         // Cycles per second (Hz)
+    Flux wavelength : Int        // Distance per cycle
+    Flux velocity : Int          // Wave speed
+    
+    // v = fλ
+    Law WaveEquation : velocity == frequency * wavelength
+    
+    Law FrequencyPositive : frequency > 0
+    Law WavelengthPositive : wavelength > 0
+}

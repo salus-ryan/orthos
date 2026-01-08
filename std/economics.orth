@@ -1,0 +1,309 @@
+// ORTHOS Standard Library: Economics
+// Foundational economic concepts as reusable constraint boundaries.
+// Import these to model markets, transactions, and resource allocation.
+
+// === SUPPLY ===
+// Models the relationship between price and quantity supplied.
+Boundary Supply <-> {
+    Flux price : Int             // Market price
+    Flux quantity : Int          // Quantity supplied
+    Flux baseSupply : Int        // Supply at zero price
+    Flux supplySlope : Int       // How much supply increases per price unit
+    
+    // Supply curve: Q_s = baseSupply + supplySlope * P
+    Law SupplyCurve : quantity == baseSupply + supplySlope * price
+    
+    // Supply increases with price (positive slope)
+    Law PositiveSlope : supplySlope >= 0
+    
+    // Quantity cannot be negative
+    Law NonNegativeQuantity : quantity >= 0
+    
+    // Price cannot be negative
+    Law NonNegativePrice : price >= 0
+}
+
+// === DEMAND ===
+// Models the relationship between price and quantity demanded.
+Boundary Demand <-> {
+    Flux price : Int             // Market price
+    Flux quantity : Int          // Quantity demanded
+    Flux baseDemand : Int        // Demand at zero price (max demand)
+    Flux demandSlope : Int       // How much demand decreases per price unit
+    
+    // Demand curve: Q_d = baseDemand - demandSlope * P
+    Law DemandCurve : quantity == baseDemand - demandSlope * price
+    
+    // Demand decreases with price (positive slope means negative relationship)
+    Law PositiveSlope : demandSlope >= 0
+    
+    // Quantity cannot be negative
+    Law NonNegativeQuantity : quantity >= 0
+    
+    // Price cannot be negative
+    Law NonNegativePrice : price >= 0
+}
+
+// === MARKET EQUILIBRIUM ===
+// Finds the price where supply equals demand.
+Boundary MarketEquilibrium <-> {
+    // Supply parameters
+    Flux baseSupply : Int
+    Flux supplySlope : Int
+    
+    // Demand parameters
+    Flux baseDemand : Int
+    Flux demandSlope : Int
+    
+    // Equilibrium outcomes
+    Flux equilibriumPrice : Int
+    Flux equilibriumQuantity : Int
+    
+    // Supply at equilibrium
+    Flux supplyQuantity : Int
+    Law SupplyAtEquilibrium : supplyQuantity == baseSupply + supplySlope * equilibriumPrice
+    
+    // Demand at equilibrium
+    Flux demandQuantity : Int
+    Law DemandAtEquilibrium : demandQuantity == baseDemand - demandSlope * equilibriumPrice
+    
+    // Equilibrium condition: Supply = Demand
+    Law Equilibrium : supplyQuantity == demandQuantity
+    Law QuantityDef : equilibriumQuantity == supplyQuantity
+    
+    // Market constraints
+    Law NonNegativePrice : equilibriumPrice >= 0
+    Law NonNegativeQuantity : equilibriumQuantity >= 0
+}
+
+// === TRANSACTION ===
+// A single exchange of goods for money between buyer and seller.
+Boundary Transaction <-> {
+    // Parties
+    Flux buyerBalance : Int      // Buyer's money before
+    Flux sellerBalance : Int     // Seller's money before
+    Flux buyerGoods : Int        // Buyer's goods before
+    Flux sellerGoods : Int       // Seller's goods before
+    
+    // Transaction terms
+    Flux price : Int             // Price per unit
+    Flux quantity : Int          // Units to transfer
+    Flux totalCost : Int         // Total money transferred
+    
+    // After transaction
+    Flux buyerBalanceAfter : Int
+    Flux sellerBalanceAfter : Int
+    Flux buyerGoodsAfter : Int
+    Flux sellerGoodsAfter : Int
+    
+    // Total cost calculation
+    Law CostCalculation : totalCost == price * quantity
+    
+    // Money conservation: buyer pays, seller receives
+    Law BuyerPays : buyerBalanceAfter == buyerBalance - totalCost
+    Law SellerReceives : sellerBalanceAfter == sellerBalance + totalCost
+    
+    // Goods conservation: seller gives, buyer receives
+    Law GoodsTransfer : buyerGoodsAfter == buyerGoods + quantity
+    Law SellerGives : sellerGoodsAfter == sellerGoods - quantity
+    
+    // Validity constraints
+    Law BuyerCanAfford : buyerBalance >= totalCost
+    Law SellerHasGoods : sellerGoods >= quantity
+    Law PositiveQuantity : quantity >= 0
+    Law PositivePrice : price >= 0
+    
+    // No negative balances after
+    Law BuyerSolvent : buyerBalanceAfter >= 0
+    Law SellerHasStock : sellerGoodsAfter >= 0
+}
+
+// === BUDGET ===
+// Consumer budget constraint for purchasing goods.
+Boundary Budget <-> {
+    Flux income : Int            // Total available money
+    Flux priceA : Int            // Price of good A
+    Flux priceB : Int            // Price of good B
+    Flux quantityA : Int         // Quantity of good A purchased
+    Flux quantityB : Int         // Quantity of good B purchased
+    Flux spending : Int          // Total spending
+    
+    // Spending calculation
+    Law SpendingDef : spending == priceA * quantityA + priceB * quantityB
+    
+    // Budget constraint: can't spend more than income
+    Law BudgetConstraint : spending <= income
+    
+    // Non-negativity
+    Law IncomePositive : income >= 0
+    Law QuantityAPositive : quantityA >= 0
+    Law QuantityBPositive : quantityB >= 0
+    Law PriceAPositive : priceA >= 0
+    Law PriceBPositive : priceB >= 0
+}
+
+// === PROFIT ===
+// Business profit calculation.
+Boundary Profit <-> {
+    Flux revenue : Int           // Total revenue
+    Flux cost : Int              // Total cost
+    Flux profit : Int            // Net profit
+    
+    // Profit definition
+    Law ProfitDef : profit == revenue - cost
+    
+    // Revenue and cost must be non-negative
+    Law RevenuePositive : revenue >= 0
+    Law CostPositive : cost >= 0
+}
+
+// === PRODUCTION ===
+// Production function with diminishing returns.
+Boundary Production <-> {
+    Flux labor : Int             // Units of labor input
+    Flux capital : Int           // Units of capital input
+    Flux output : Int            // Units produced
+    Flux productivity : Int      // Output per labor unit (scaled by 10)
+    
+    // Simple linear production function
+    Law ProductionFunction : output * 10 == productivity * labor + capital
+    
+    // Inputs must be non-negative
+    Law LaborPositive : labor >= 0
+    Law CapitalPositive : capital >= 0
+    Law OutputPositive : output >= 0
+}
+
+// === INVENTORY ===
+// Inventory management with stock constraints.
+Boundary Inventory <-> {
+    Flux stockStart : Int        // Starting inventory
+    Flux produced : Int          // Units produced
+    Flux sold : Int              // Units sold
+    Flux stockEnd : Int          // Ending inventory
+    
+    // Inventory balance
+    Law InventoryBalance : stockEnd == stockStart + produced - sold
+    
+    // Cannot sell more than available
+    Law SalesConstraint : sold <= stockStart + produced
+    
+    // Non-negativity
+    Law StockStartPositive : stockStart >= 0
+    Law ProducedPositive : produced >= 0
+    Law SoldPositive : sold >= 0
+    Law StockEndPositive : stockEnd >= 0
+}
+
+// === UTILITY ===
+// Consumer utility maximization.
+Boundary Utility <-> {
+    Flux quantityA : Int         // Quantity of good A
+    Flux quantityB : Int         // Quantity of good B
+    Flux utilityA : Int          // Marginal utility of A (scaled)
+    Flux utilityB : Int          // Marginal utility of B (scaled)
+    Flux totalUtility : Int      // Total utility
+    
+    // Simple additive utility function
+    Law UtilityFunction : totalUtility == utilityA * quantityA + utilityB * quantityB
+    
+    // Non-negativity
+    Law QuantityAPositive : quantityA >= 0
+    Law QuantityBPositive : quantityB >= 0
+}
+
+// === EXCHANGE RATE ===
+// Currency exchange constraints.
+Boundary ExchangeRate <-> {
+    Flux amountFrom : Int        // Amount in source currency
+    Flux amountTo : Int          // Amount in target currency
+    Flux rate : Int              // Exchange rate (scaled by 100)
+    
+    // Conversion: amountTo = amountFrom * rate / 100
+    Law Conversion : amountTo * 100 == amountFrom * rate
+    
+    // Positive amounts
+    Law FromPositive : amountFrom >= 0
+    Law ToPositive : amountTo >= 0
+    Law RatePositive : rate > 0
+}
+
+// === LOAN ===
+// Simple interest loan constraints.
+Boundary Loan <-> {
+    Flux principal : Int         // Original loan amount
+    Flux interestRate : Int      // Interest rate (scaled by 100, e.g., 5% = 5)
+    Flux periods : Int           // Number of periods
+    Flux interest : Int          // Total interest owed
+    Flux totalOwed : Int         // Principal + interest
+    
+    // Simple interest calculation
+    Law InterestCalc : interest * 100 == principal * interestRate * periods
+    Law TotalCalc : totalOwed == principal + interest
+    
+    // Constraints
+    Law PrincipalPositive : principal > 0
+    Law RatePositive : interestRate >= 0
+    Law PeriodsPositive : periods >= 0
+}
+
+// === TAX ===
+// Tax calculation on income or transactions.
+Boundary Tax <-> {
+    Flux grossAmount : Int       // Pre-tax amount
+    Flux taxRate : Int           // Tax rate (scaled by 100, e.g., 20% = 20)
+    Flux taxAmount : Int         // Tax owed
+    Flux netAmount : Int         // After-tax amount
+    
+    // Tax calculation
+    Law TaxCalc : taxAmount * 100 == grossAmount * taxRate
+    Law NetCalc : netAmount == grossAmount - taxAmount
+    
+    // Constraints
+    Law GrossPositive : grossAmount >= 0
+    Law RateValid : taxRate >= 0
+    Law RateCapped : taxRate <= 100
+    Law NetPositive : netAmount >= 0
+}
+
+// === AUCTION ===
+// Sealed-bid auction constraints.
+Boundary Auction <-> {
+    Flux reservePrice : Int      // Minimum acceptable price
+    Flux bidA : Int              // Bidder A's bid
+    Flux bidB : Int              // Bidder B's bid
+    Flux winningBid : Int        // The winning bid amount
+    Flux auctionValid : Bool     // Whether auction has a valid winner
+    
+    // Winning bid is the maximum
+    Law WinnerIsMax : winningBid >= bidA && winningBid >= bidB
+    Law WinnerExists : winningBid == bidA || winningBid == bidB
+    
+    // Auction is valid only if winning bid meets reserve
+    Law ReserveMet : auctionValid == true implies winningBid >= reservePrice
+    Law ReserveNotMet : auctionValid == false implies winningBid < reservePrice
+    
+    // Bids must be non-negative
+    Law BidAPositive : bidA >= 0
+    Law BidBPositive : bidB >= 0
+}
+
+// === SCARCITY ===
+// Resource scarcity and allocation constraints.
+Boundary Scarcity <-> {
+    Flux totalResource : Int     // Total available resource
+    Flux allocationA : Int       // Allocated to agent A
+    Flux allocationB : Int       // Allocated to agent B
+    Flux allocationC : Int       // Allocated to agent C
+    Flux unallocated : Int       // Remaining unallocated
+    
+    // Conservation: all allocations sum to total
+    Law Conservation : allocationA + allocationB + allocationC + unallocated == totalResource
+    
+    // Non-negativity
+    Law TotalPositive : totalResource >= 0
+    Law AllocAPositive : allocationA >= 0
+    Law AllocBPositive : allocationB >= 0
+    Law AllocCPositive : allocationC >= 0
+    Law UnallocPositive : unallocated >= 0
+}

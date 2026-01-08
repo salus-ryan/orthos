@@ -1,0 +1,77 @@
+// ORTHOS Comfort Laws for Home Automation
+// This file defines what "comfortable" means.
+// The solver will activate actuators to maintain these laws.
+
+Boundary Comfort <-> {
+    // === SENSOR READINGS (Current State) ===
+    Flux Temperature : Int       // Current temperature in Celsius
+    Flux LightLevel : Int        // Light level (0-100 lux normalized)
+    Flux Humidity : Int          // Relative humidity percentage
+    Flux Occupancy : Bool        // Is someone home?
+    Flux TimeOfDay : Int         // Hour (0-23)
+    
+    // === ACTUATOR STATES (Solver Determines These) ===
+    Flux Heater : Bool           // Heating system
+    Flux Cooler : Bool           // Air conditioning
+    Flux Lights : Bool           // Main lights
+    Flux NightLight : Bool       // Dim night lighting
+    Flux Humidifier : Bool       // Humidity control
+    Flux Blinds : Int            // Blind position (0=closed, 100=open)
+    
+    // === THE LAWS OF COMFORT ===
+    
+    // Temperature Comfort (when occupied)
+    Law TempComfortMin : Occupancy == true implies Temperature >= 20
+    Law TempComfortMax : Occupancy == true implies Temperature <= 24
+    
+    // Light Comfort (when occupied during day)
+    Law DaylightComfort : (Occupancy == true && TimeOfDay >= 8 && TimeOfDay <= 20) implies LightLevel >= 40
+    
+    // Night Comfort (dim lights at night if occupied)
+    Law NightComfort : (Occupancy == true && (TimeOfDay < 6 || TimeOfDay > 22)) implies LightLevel >= 5
+    Law NightNotBright : (TimeOfDay < 6 || TimeOfDay > 22) implies LightLevel <= 30
+    
+    // Humidity Comfort
+    Law HumidityMin : Humidity >= 30
+    Law HumidityMax : Humidity <= 60
+    
+    // === PHYSICS OF ACTUATORS ===
+    
+    // Heater warms the space
+    Law HeaterWarms : Heater == true implies Temperature >= 20
+    
+    // Cooler cools the space
+    Law CoolerCools : Cooler == true implies Temperature <= 24
+    
+    // Lights illuminate
+    Law LightsIlluminate : Lights == true implies LightLevel >= 40
+    Law NightLightDim : NightLight == true implies LightLevel >= 5
+    
+    // Humidifier adds moisture
+    Law HumidifierMoistens : Humidifier == true implies Humidity >= 30
+    
+    // Open blinds let in natural light (during day)
+    Law BlindsLight : (Blinds >= 50 && TimeOfDay >= 8 && TimeOfDay <= 18) implies LightLevel >= 30
+    
+    // === EFFICIENCY LAWS (Hard Constraints) ===
+    
+    // Never heat and cool simultaneously
+    Law NoHeatCool : !(Heater == true && Cooler == true)
+    
+    // Don't use main lights when blinds provide enough light
+    Law NaturalLightFirst : (Blinds >= 80 && TimeOfDay >= 9 && TimeOfDay <= 17) implies Lights == false
+    
+    // === EFFICIENCY GOALS (Soft Constraints) ===
+    
+    // Prefer natural light over artificial (weight 5)
+    Goal PreferNatural : (TimeOfDay >= 8 && TimeOfDay <= 18) implies Blinds >= 50 @5
+    
+    // Save energy when unoccupied (weight 10)
+    Goal UnoccupiedSave : Occupancy == false implies Heater == false @10
+    Goal UnoccupiedDark : Occupancy == false implies Lights == false @10
+    
+    // Prefer minimal actuator use (weight 1)
+    Goal MinimalHeater : Heater == false @1
+    Goal MinimalCooler : Cooler == false @1
+    Goal MinimalHumidifier : Humidifier == false @1
+}

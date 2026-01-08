@@ -3,5 +3,6 @@ members = [
     "orthos-kernel",
     "orthos-daemon",
     "orthos-lsp",
+    "orthos-bridge",
 ]
 resolver = "2"
