@@ -82,9 +82,11 @@ Result: light.living_room → turn_on
 
 ### Use Standard Library
 ```orthos
+import "std/physics.orth" as Physics
+
 Boundary MyPhysics <-> {
     // Ball collision using std/physics
-    Flux result = Collision1D(
+    Flux result = Physics.Collision1D(
         massA=2, velA_before=5,
         massB=1, velB_before=0
     ).velB_after
@@ -105,11 +107,32 @@ cp .env.example .env
 docker-compose up -d orthos-hass
 ```
 
+## Explainability (The Dashboard)
+
+The daemon now explains *why* it made decisions:
+
+```bash
+echo '{"method":"audit","id":1}' | orthos-daemon
+```
+
+```json
+{
+  "goals": {
+    "Comfort.TempMin": {"satisfied": true, "weight": 10, "cost": 0},
+    "Economy.SavePower": {"satisfied": false, "weight": 5, "cost": 5}
+  },
+  "total_cost": 5
+}
+```
+
+**Translation**: *"Heater is ON because Comfort (weight 10) was prioritized over Economy (weight 5)."*
+
 ## The Vision
 
 **Before**: Every user defines Time, Physics, Comfort from scratch.
 
 **After**: 
-- `import Physics` → Start constraining objects
+- `import "std/physics.orth" as Physics` → Start constraining objects
 - `docker-compose up` → Solver controls your home
 - Darkness becomes *ontologically impossible* when you're home
+- The system *explains* why it turned on the lights

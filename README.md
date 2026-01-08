@@ -42,6 +42,27 @@ cargo build --release
 ./target/release/orthos-kernel examples/safe_division.orth --smt
 ```
 
+## Import System
+
+Import standard library modules or other `.orth` files:
+
+```orthos
+import "std/physics.orth" as Physics
+import "std/economics.orth" as Econ
+
+Boundary MySimulation <-> {
+    // Use imported boundaries with namespace prefix
+    Flux collision = Physics.Collision1D(
+        massA=1, velA_before=10,
+        massB=1, velB_before=0
+    )
+    Flux market = Econ.MarketEquilibrium(
+        baseSupply=0, supplySlope=2,
+        baseDemand=100, demandSlope=1
+    )
+}
+```
+
 ## Language Primitives
 
 ### Boundary (`|`)
@@ -68,6 +89,14 @@ An invariant truth that restricts the domain of Flux. Replaces control flow.
 ```orthos
 Law NonZero : denominator != 0
 Law Relation : result * denominator == numerator
+```
+
+### Goal (Soft Constraint)
+A preference that the solver tries to satisfy, with a weight for prioritization.
+
+```orthos
+Goal Efficiency : power < 100 @5      // Weight 5
+Goal Comfort : temperature >= 20 @10  // Weight 10 (higher priority)
 ```
 
 ### Manifest
@@ -162,6 +191,35 @@ Boundary Fibonacci {
 │                    Layer I: Kernel                      │
 │              (Z3 Theorem Prover Bindings)               │
 └─────────────────────────────────────────────────────────┘
+```
+
+## Daemon API
+
+The ORTHOS Daemon provides a JSON-RPC interface:
+
+```bash
+# Start daemon
+./target/release/orthos-daemon
+
+# Initialize with source
+echo '{"method":"initialize","params":{"source":"..."},"id":1}' | orthos-daemon
+
+# Query flux values
+echo '{"method":"query","params":{"flux":["Main.x"]},"id":2}' | orthos-daemon
+
+# Audit goal satisfaction (explainability)
+echo '{"method":"audit","id":3}' | orthos-daemon
+```
+
+### Audit Response (Explainability)
+```json
+{
+  "goals": {
+    "Comfort.TempMin": {"satisfied": true, "weight": 10, "cost": 0},
+    "Economy.SavePower": {"satisfied": false, "weight": 5, "cost": 5}
+  },
+  "total_cost": 5
+}
 ```
 
 ## Limitations (v0.1)

@@ -81,7 +81,28 @@ There are only three primitives in ORTHOS. All other structures (classes, functi
 
 ## **4. The Syntax (Text Projection)**
 
-**Keywords:** `Boundary`, `Flux`, `Law`, `Manifest`, `Diode`.
+**Keywords:** `Boundary`, `Flux`, `Law`, `Goal`, `Manifest`, `Diode`, `import`, `as`.
+
+### **Import Statement**
+
+```orthos
+import "std/physics.orth" as Physics
+import "std/economics.orth" as Econ
+
+Boundary Main {
+    // Imported boundaries are prefixed with alias
+    Flux collision = Physics.Collision1D(massA=1, velA_before=10, massB=1, velB_before=0)
+}
+```
+
+### **Goal (Soft Constraint)**
+
+```orthos
+Goal Efficiency : power < 100 @5      // Weight 5 (lower priority)
+Goal Comfort : temperature >= 20 @10  // Weight 10 (higher priority)
+```
+
+Goals are preferences the solver tries to satisfy. When conflicts arise, higher-weight goals take precedence.
 
 ```orthos
 // EXAMPLE: Safe Division with Temporal Diode

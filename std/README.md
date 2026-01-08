@@ -4,14 +4,28 @@ Reusable constraint boundaries for common domains.
 
 ## Usage
 
-Import and instantiate boundaries in your Orthos programs:
+Import modules using the `import` statement:
 
 ```orthos
-// Use physics constraints
+import "std/physics.orth" as Physics
+import "std/economics.orth" as Econ
+
 Boundary MySimulation <-> {
-    Flux ball = Velocity(position=0, velocity=10, time=1).nextPosition
+    // Access boundaries via namespace prefix
+    Flux ball = Physics.Velocity(position=0, velocity=10, time=1).nextPosition
+    Flux price = Econ.MarketEquilibrium(baseSupply=0, supplySlope=2, baseDemand=100, demandSlope=1).equilibriumPrice
 }
 ```
+
+### Import Syntax
+
+```orthos
+import "path/to/file.orth" as Alias
+```
+
+- **path**: Relative to the current file's directory
+- **Alias**: Namespace prefix for all boundaries in the imported file
+- Imported boundaries become `Alias.BoundaryName`
 
 ## Modules
 
@@ -53,9 +67,11 @@ Boundary MySimulation <-> {
 ### Physics: Elastic Collision
 
 ```orthos
+import "std/physics.orth" as Physics
+
 Boundary BilliardShot <-> {
     // Two balls collide
-    Flux collision = Collision1D(
+    Flux collision = Physics.Collision1D(
         massA=1, velA_before=10,
         massB=1, velB_before=0
     )
@@ -69,9 +85,11 @@ Boundary BilliardShot <-> {
 ### Economics: Market Clearing
 
 ```orthos
+import "std/economics.orth" as Econ
+
 Boundary CoffeeMarket <-> {
     // Find equilibrium price
-    Flux market = MarketEquilibrium(
+    Flux market = Econ.MarketEquilibrium(
         baseSupply=0, supplySlope=2,
         baseDemand=100, demandSlope=1
     )
@@ -85,9 +103,11 @@ Boundary CoffeeMarket <-> {
 ### Physics: Projectile Motion
 
 ```orthos
+import "std/physics.orth" as Physics
+
 Boundary Projectile <-> {
     // Ball thrown upward
-    Flux trajectory = Gravity(
+    Flux trajectory = Physics.Gravity(
         height=0, velocity=20, gravity=-10, time=2
     )
     
