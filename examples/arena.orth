@@ -1,0 +1,34 @@
+// ORTHOS Example: The Arena (Multi-Agent Negotiation)
+// Demonstrates soft constraints (Goals) for resource optimization.
+// Two agents share a limited battery - the Daemon finds the optimal compromise.
+
+Boundary Arena <-> {
+    // === SHARED RESOURCE ===
+    Flux BatteryTotal : Int      // Total battery available (set by environment)
+    Flux BatteryUsed : Int       // Total battery consumed
+    
+    // === AGENT ALLOCATIONS ===
+    Flux RadarPower : Int        // Power allocated to Radar
+    Flux RadioPower : Int        // Power allocated to Radio
+    
+    // === PHYSICS LAWS (Hard Constraints - Must be true) ===
+    // Can't use more than available
+    Law Conservation : BatteryUsed == RadarPower + RadioPower
+    Law Capacity : BatteryUsed <= BatteryTotal
+    
+    // Power allocations must be non-negative
+    Law RadarNonNeg : RadarPower >= 0
+    Law RadioNonNeg : RadioPower >= 0
+    
+    // === AGENT GOALS (Soft Constraints - Should be true) ===
+    // Radar Agent: Needs 50 units to function. HIGH PRIORITY (weight=10)
+    // "I need to see! Without radar, we're blind!"
+    Goal RadarMinimum : RadarPower >= 50 @10
+    
+    // Radio Agent: Needs 30 units to function. MEDIUM PRIORITY (weight=5)
+    // "I need to communicate! But survival comes first."
+    Goal RadioMinimum : RadioPower >= 30 @5
+    
+    // Efficiency Goal: Don't waste power. LOW PRIORITY (weight=1)
+    Goal Efficiency : BatteryUsed <= 80 @1
+}

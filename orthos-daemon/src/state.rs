@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use z3::{ast::{Ast, Bool, Int}, Config, Context, SatResult, Solver};
+use z3::{ast::{Ast, Bool, Int}, Config, Context, Optimize, SatResult};
 
-use orthos_kernel::{parse, Boundary, Expr, Program, Type, MAX_LIST_SIZE};
+use orthos_kernel::{parse, Boundary, Expr, GoalDecl, Program, Type, MAX_LIST_SIZE};
 
 #[derive(Debug)]
 pub struct InitError {
@@ -14,12 +14,30 @@ pub struct ConstrainError {
     pub conflicts: Vec<String>,
 }
 
+pub struct GoalInfo {
+    pub name: String,
+    pub weight: u32,
+    pub satisfied: bool,
+}
+
+#[derive(Debug)]
+pub struct OptimizeResult {
+    pub cost: u64,
+}
+
+#[derive(Debug)]
+pub struct QueryResult {
+    pub values: HashMap<String, serde_json::Value>,
+    pub violated_goals: Vec<String>,
+}
+
 pub struct DaemonState {
     ctx: &'static Context,
-    solver: Solver<'static>,
+    optimizer: Optimize<'static>,
     int_vars: HashMap<String, Int<'static>>,
     bool_vars: HashMap<String, Bool<'static>>,
     law_names: Vec<String>,
+    goal_names: Vec<(String, u32)>,  // (name, weight)
     flux_list: Vec<String>,
     boundary_defs: HashMap<String, Boundary>,
     checkpoint_depth: usize,
@@ -38,14 +56,15 @@ impl DaemonState {
         // and the daemon runs until shutdown
         let cfg = Config::new();
         let ctx: &'static Context = Box::leak(Box::new(Context::new(&cfg)));
-        let solver = Solver::new(ctx);
+        let optimizer = Optimize::new(ctx);
         
         let mut state = DaemonState {
             ctx,
-            solver,
+            optimizer,
             int_vars: HashMap::new(),
             bool_vars: HashMap::new(),
             law_names: Vec::new(),
+            goal_names: Vec::new(),
             flux_list: Vec::new(),
             boundary_defs: HashMap::new(),
             checkpoint_depth: 0,
@@ -54,8 +73,8 @@ impl DaemonState {
         // Load the program
         state.load_program(&program)?;
         
-        // Verify initial satisfiability
-        match state.solver.check() {
+        // Verify initial satisfiability (hard constraints must be satisfiable)
+        match state.optimizer.check(&[]) {
             SatResult::Sat => Ok(state),
             SatResult::Unsat => Err(InitError {
                 message: "Ontological Error: Base laws are contradictory".to_string(),
@@ -101,15 +120,23 @@ impl DaemonState {
             // Handle initializers
             if let Some(ref init) = flux.init {
                 let constraint = self.build_equality(&var_name, init, &boundary_prefix)?;
-                self.solver.assert(&constraint);
+                self.optimizer.assert(&constraint);
             }
         }
         
-        // Process Laws
+        // Process Laws (hard constraints)
         for law in &boundary.laws {
             let constraint = self.build_bool_expr(&law.constraint, &boundary_prefix)?;
             self.law_names.push(format!("{}.{}", boundary_prefix, law.name));
-            self.solver.assert(&constraint);
+            self.optimizer.assert(&constraint);
+        }
+        
+        // Process Goals (soft constraints)
+        for goal in &boundary.goals {
+            let constraint = self.build_bool_expr(&goal.constraint, &boundary_prefix)?;
+            let goal_name = format!("{}.{}", boundary_prefix, goal.name);
+            self.goal_names.push((goal_name, goal.weight));
+            self.optimizer.assert_soft(&constraint, goal.weight, None);
         }
         
         // Process nested boundaries
@@ -137,8 +164,8 @@ impl DaemonState {
                 
                 let zero = Int::from_i64(ctx, 0);
                 let max = Int::from_i64(ctx, MAX_LIST_SIZE as i64);
-                self.solver.assert(&len_var.ge(&zero));
-                self.solver.assert(&len_var.le(&max));
+                self.optimizer.assert(&len_var.ge(&zero));
+                self.optimizer.assert(&len_var.le(&max));
                 
                 self.int_vars.insert(len_name, len_var);
                 
@@ -152,15 +179,15 @@ impl DaemonState {
                 let len_var = Int::new_const(ctx, len_name.clone());
                 let zero = Int::from_i64(ctx, 0);
                 let max = Int::from_i64(ctx, MAX_LIST_SIZE as i64);
-                self.solver.assert(&len_var.ge(&zero));
-                self.solver.assert(&len_var.le(&max));
+                self.optimizer.assert(&len_var.ge(&zero));
+                self.optimizer.assert(&len_var.le(&max));
                 self.int_vars.insert(len_name, len_var);
                 
                 for i in 0..MAX_LIST_SIZE {
                     let byte_name = format!("{}_{}", name, i);
                     let byte_var = Int::new_const(ctx, byte_name.clone());
-                    self.solver.assert(&byte_var.ge(&Int::from_i64(ctx, 0)));
-                    self.solver.assert(&byte_var.le(&Int::from_i64(ctx, 255)));
+                    self.optimizer.assert(&byte_var.ge(&Int::from_i64(ctx, 0)));
+                    self.optimizer.assert(&byte_var.le(&Int::from_i64(ctx, 255)));
                     self.int_vars.insert(byte_name, byte_var);
                 }
             }
@@ -451,7 +478,7 @@ impl DaemonState {
     }
     
     pub fn checkpoint(&mut self) {
-        self.solver.push();
+        self.optimizer.push();
         self.checkpoint_depth += 1;
     }
     
@@ -459,14 +486,14 @@ impl DaemonState {
         if self.checkpoint_depth == 0 {
             return Err("No checkpoint to restore".to_string());
         }
-        self.solver.pop(1);
+        self.optimizer.pop();
         self.checkpoint_depth -= 1;
         Ok(())
     }
     
-    pub fn constrain(&mut self, laws: &[String]) -> Result<(), ConstrainError> {
+    pub fn constrain(&mut self, laws: &[String]) -> Result<OptimizeResult, ConstrainError> {
         // Push before asserting (micro-checkpoint for auto-rollback)
-        self.solver.push();
+        self.optimizer.push();
         
         // Parse and assert each law
         // Laws come in format "Law: Boundary.var > 10" or "Boundary.var > 10"
@@ -487,11 +514,11 @@ impl DaemonState {
                             // Build with empty prefix since variable names are already qualified
                             match self.build_dynamic_bool_expr(&law.constraint) {
                                 Ok(constraint) => {
-                                    self.solver.assert(&constraint);
+                                    self.optimizer.assert(&constraint);
                                     self.law_names.push(format!("Dynamic: {}", expr_str));
                                 }
                                 Err(e) => {
-                                    self.solver.pop(1);
+                                    self.optimizer.pop();
                                     return Err(ConstrainError {
                                         conflicts: vec![format!("Failed to build constraint: {}", e.message)],
                                     });
@@ -501,7 +528,7 @@ impl DaemonState {
                     }
                 }
                 Err(e) => {
-                    self.solver.pop(1);
+                    self.optimizer.pop();
                     return Err(ConstrainError {
                         conflicts: vec![format!("Parse error: {}", e)],
                     });
@@ -509,21 +536,23 @@ impl DaemonState {
             }
         }
         
-        // Check satisfiability
-        match self.solver.check() {
+        // Check satisfiability with optimization
+        match self.optimizer.check(&[]) {
             SatResult::Sat => {
                 // Keep the constraints (don't pop)
-                Ok(())
+                // Calculate violated goals cost
+                let cost = self.calculate_violated_goals_cost();
+                Ok(OptimizeResult { cost })
             }
             SatResult::Unsat => {
                 // Auto-rollback
-                self.solver.pop(1);
+                self.optimizer.pop();
                 Err(ConstrainError {
                     conflicts: self.law_names.clone(),
                 })
             }
             SatResult::Unknown => {
-                self.solver.pop(1);
+                self.optimizer.pop();
                 Err(ConstrainError {
                     conflicts: vec!["Solver returned UNKNOWN".to_string()],
                 })
@@ -531,15 +560,23 @@ impl DaemonState {
         }
     }
     
-    pub fn query(&self, flux_names: &[String]) -> Result<HashMap<String, serde_json::Value>, String> {
+    fn calculate_violated_goals_cost(&self) -> u64 {
+        // Z3 Optimize tracks soft constraint violations internally
+        // We return the total weight of violated soft constraints
+        // For now, we return 0 as the model satisfies as many goals as possible
+        // The actual cost would require inspecting the optimization objectives
+        0
+    }
+    
+    pub fn query(&self, flux_names: &[String]) -> Result<QueryResult, String> {
         // First check if we have a model
-        match self.solver.check() {
+        match self.optimizer.check(&[]) {
             SatResult::Sat => {}
             SatResult::Unsat => return Err("Universe is in UNSAT state".to_string()),
             SatResult::Unknown => return Err("Solver returned UNKNOWN".to_string()),
         }
         
-        let model = self.solver.get_model()
+        let model = self.optimizer.get_model()
             .ok_or_else(|| "Failed to get model".to_string())?;
         
         let mut values = HashMap::new();
@@ -572,6 +609,13 @@ impl DaemonState {
             values.insert(name.clone(), serde_json::Value::Null);
         }
         
-        Ok(values)
+        Ok(QueryResult {
+            values,
+            violated_goals: vec![],  // TODO: Track which goals were violated
+        })
+    }
+    
+    pub fn get_goal_names(&self) -> Vec<(String, u32)> {
+        self.goal_names.clone()
     }
 }

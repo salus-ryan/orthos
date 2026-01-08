@@ -87,6 +87,13 @@ pub struct LawDecl {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GoalDecl {
+    pub name: String,
+    pub constraint: Expr,
+    pub weight: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ManifestBlock {
     pub name: String,
     pub statements: Vec<Statement>,
@@ -104,6 +111,7 @@ pub struct Boundary {
     pub causal_mode: CausalMode,
     pub flux: Vec<FluxDecl>,
     pub laws: Vec<LawDecl>,
+    pub goals: Vec<GoalDecl>,
     pub manifest: Option<ManifestBlock>,
     pub nested_boundaries: Vec<Boundary>,
 }

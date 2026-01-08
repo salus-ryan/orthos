@@ -98,10 +98,14 @@ fn handle_initialize(
     match DaemonState::new(&source) {
         Ok(new_state) => {
             let flux_list = new_state.get_flux_list();
+            let goal_list: Vec<_> = new_state.get_goal_names().iter()
+                .map(|(name, weight)| serde_json::json!({"name": name, "weight": weight}))
+                .collect();
             *state = Some(new_state);
             Response::success(id, serde_json::json!({
                 "status": "READY",
-                "flux_list": flux_list
+                "flux_list": flux_list,
+                "goal_list": goal_list
             }))
         }
         Err(e) => {
@@ -143,7 +147,10 @@ fn handle_constrain(
     };
     
     match s.constrain(&laws) {
-        Ok(()) => Response::success(id, serde_json::json!({ "status": "SAT" })),
+        Ok(result) => Response::success(id, serde_json::json!({
+            "status": "SAT",
+            "cost": result.cost
+        })),
         Err(e) => Response::success(id, serde_json::json!({
             "status": "UNSAT",
             "core": e.conflicts
@@ -174,7 +181,10 @@ fn handle_query(
     };
     
     match s.query(&flux_names) {
-        Ok(values) => Response::success(id, serde_json::json!({ "values": values })),
+        Ok(result) => Response::success(id, serde_json::json!({
+            "values": result.values,
+            "violated_goals": result.violated_goals
+        })),
         Err(e) => Response::error(id, -32003, e, None),
     }
 }

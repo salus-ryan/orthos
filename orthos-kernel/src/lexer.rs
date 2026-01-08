@@ -14,6 +14,9 @@ pub enum Token {
     #[token("Law")]
     Law,
     
+    #[token("Goal")]
+    Goal,
+    
     #[token("Manifest")]
     Manifest,
     
@@ -139,6 +142,9 @@ pub enum Token {
     
     #[token("=")]
     Assign,
+    
+    #[token("@")]
+    At,
 }
 
 pub struct Lexer<'a> {

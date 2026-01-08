@@ -93,6 +93,7 @@ impl Parser {
         
         let mut flux = Vec::new();
         let mut laws = Vec::new();
+        let mut goals = Vec::new();
         let mut manifest = None;
         let mut nested_boundaries = Vec::new();
         
@@ -103,6 +104,9 @@ impl Parser {
                 }
                 Some(Token::Law) => {
                     laws.push(self.parse_law_decl()?);
+                }
+                Some(Token::Goal) => {
+                    goals.push(self.parse_goal_decl()?);
                 }
                 Some(Token::Manifest) => {
                     manifest = Some(self.parse_manifest()?);
@@ -122,6 +126,7 @@ impl Parser {
             causal_mode,
             flux,
             laws,
+            goals,
             manifest,
             nested_boundaries,
         })
@@ -179,6 +184,31 @@ impl Parser {
         let constraint = self.parse_expr()?;
         
         Ok(LawDecl { name, constraint })
+    }
+    
+    fn parse_goal_decl(&mut self) -> Result<GoalDecl, ParseError> {
+        self.expect(Token::Goal)?;
+        let name = self.expect_identifier()?;
+        self.expect(Token::Colon)?;
+        let constraint = self.parse_expr()?;
+        
+        // Parse optional weight: @N (e.g., Goal Want : x >= 10 @5)
+        let weight = if self.peek() == Some(&Token::At) {
+            self.advance(); // consume '@'
+            
+            // Parse weight value
+            match self.advance() {
+                Some(Token::Integer(n)) if n > 0 => n as u32,
+                other => return Err(ParseError::Expected {
+                    expected: "positive integer weight".to_string(),
+                    found: other,
+                }),
+            }
+        } else {
+            1 // Default weight
+        };
+        
+        Ok(GoalDecl { name, constraint, weight })
     }
     
     fn parse_manifest(&mut self) -> Result<ManifestBlock, ParseError> {
