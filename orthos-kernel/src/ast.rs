@@ -118,12 +118,16 @@ pub struct Boundary {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Program {
+    pub imports: Vec<ImportDecl>,
     pub boundaries: Vec<Boundary>,
 }
 
 impl Program {
     pub fn new() -> Self {
-        Self { boundaries: Vec::new() }
+        Self { 
+            imports: Vec::new(),
+            boundaries: Vec::new(),
+        }
     }
     
     pub fn find_boundary(&self, name: &str) -> Option<&Boundary> {
@@ -148,4 +152,10 @@ impl Default for Program {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ImportDecl {
+    pub path: String,      // e.g., "std/physics.orth"
+    pub alias: String,     // e.g., "Physics"
 }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use z3::{ast::{Ast, Bool, Int}, Config, Context, Optimize, SatResult};
 
-use orthos_kernel::{parse, Boundary, Expr, Program, Type, MAX_LIST_SIZE};
+use orthos_kernel::{parse, link_program, Boundary, Expr, Program, Type, MAX_LIST_SIZE};
 
 #[derive(Debug)]
 pub struct InitError {
@@ -32,6 +32,13 @@ pub struct QueryResult {
     pub violated_goals: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct GoalAuditEntry {
+    pub satisfied: bool,
+    pub weight: u32,
+    pub cost: u64,
+}
+
 pub struct DaemonState {
     ctx: &'static Context,
     optimizer: Optimize<'static>,
@@ -39,16 +46,22 @@ pub struct DaemonState {
     bool_vars: HashMap<String, Bool<'static>>,
     law_names: Vec<String>,
     goal_names: Vec<(String, u32)>,  // (name, weight)
+    goal_constraints: Vec<(String, Bool<'static>, u32)>,  // (name, constraint, weight) for auditing
     flux_list: Vec<String>,
     boundary_defs: HashMap<String, Boundary>,
     checkpoint_depth: usize,
+    base_path: std::path::PathBuf,
 }
 
 impl DaemonState {
     pub fn new(source: &str) -> Result<Self, InitError> {
-        // Parse the source
-        let program = parse(source).map_err(|e| InitError {
-            message: format!("Parse error: {}", e),
+        Self::new_with_base_path(source, std::env::current_dir().unwrap_or_default())
+    }
+    
+    pub fn new_with_base_path(source: &str, base_path: std::path::PathBuf) -> Result<Self, InitError> {
+        // Parse and link the source (resolves imports)
+        let program = link_program(source, &base_path).map_err(|e| InitError {
+            message: format!("Link error: {}", e),
             conflicts: vec![],
         })?;
         
@@ -66,9 +79,11 @@ impl DaemonState {
             bool_vars: HashMap::new(),
             law_names: Vec::new(),
             goal_names: Vec::new(),
+            goal_constraints: Vec::new(),
             flux_list: Vec::new(),
             boundary_defs: HashMap::new(),
             checkpoint_depth: 0,
+            base_path,
         };
         
         // Load the program
@@ -136,7 +151,8 @@ impl DaemonState {
         for goal in &boundary.goals {
             let constraint = self.build_bool_expr(&goal.constraint, &boundary_prefix)?;
             let goal_name = format!("{}.{}", boundary_prefix, goal.name);
-            self.goal_names.push((goal_name, goal.weight));
+            self.goal_names.push((goal_name.clone(), goal.weight));
+            self.goal_constraints.push((goal_name, constraint.clone(), goal.weight));
             self.optimizer.assert_soft(&constraint, goal.weight, None);
         }
         
@@ -562,11 +578,44 @@ impl DaemonState {
     }
     
     fn calculate_violated_goals_cost(&self) -> u64 {
-        // Z3 Optimize tracks soft constraint violations internally
-        // We return the total weight of violated soft constraints
-        // For now, we return 0 as the model satisfies as many goals as possible
-        // The actual cost would require inspecting the optimization objectives
-        0
+        // Calculate total cost of violated goals by checking each goal constraint
+        if let Some(model) = self.optimizer.get_model() {
+            let mut total_cost = 0u64;
+            for (_, constraint, weight) in &self.goal_constraints {
+                if let Some(val) = model.eval(constraint, true) {
+                    if let Some(satisfied) = val.as_bool() {
+                        if !satisfied {
+                            total_cost += *weight as u64;
+                        }
+                    }
+                }
+            }
+            total_cost
+        } else {
+            0
+        }
+    }
+    
+    pub fn get_goal_audit(&self) -> HashMap<String, GoalAuditEntry> {
+        let mut audit = HashMap::new();
+        
+        if let Some(model) = self.optimizer.get_model() {
+            for (name, constraint, weight) in &self.goal_constraints {
+                let satisfied = model.eval(constraint, true)
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                
+                let cost = if satisfied { 0 } else { *weight as u64 };
+                
+                audit.insert(name.clone(), GoalAuditEntry {
+                    satisfied,
+                    weight: *weight,
+                    cost,
+                });
+            }
+        }
+        
+        audit
     }
     
     pub fn query(&self, flux_names: &[String]) -> Result<QueryResult, String> {
@@ -610,9 +659,16 @@ impl DaemonState {
             values.insert(name.clone(), serde_json::Value::Null);
         }
         
+        // Get violated goals from audit
+        let audit = self.get_goal_audit();
+        let violated_goals: Vec<String> = audit.iter()
+            .filter(|(_, entry)| !entry.satisfied)
+            .map(|(name, _)| name.clone())
+            .collect();
+        
         Ok(QueryResult {
             values,
-            violated_goals: vec![],  // TODO: Track which goals were violated
+            violated_goals,
         })
     }
     

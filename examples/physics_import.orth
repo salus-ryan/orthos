@@ -1,0 +1,30 @@
+// Example: Using the Physics Standard Library
+// Demonstrates the import system with std/physics.orth
+
+import "std/physics.orth" as Physics
+
+Boundary BilliardTable <-> {
+    // Two balls about to collide
+    Flux ballA_mass : Int
+    Flux ballA_vel_before : Int
+    Flux ballA_vel_after : Int
+    
+    Flux ballB_mass : Int
+    Flux ballB_vel_before : Int
+    Flux ballB_vel_after : Int
+    
+    // Set up the collision scenario
+    Law BallAMass : ballA_mass == 1
+    Law BallBMass : ballB_mass == 1
+    Law BallAMoving : ballA_vel_before == 10
+    Law BallBStationary : ballB_vel_before == 0
+    
+    // Apply physics: momentum conservation
+    Law MomentumConserved : 
+        ballA_mass * ballA_vel_before + ballB_mass * ballB_vel_before ==
+        ballA_mass * ballA_vel_after + ballB_mass * ballB_vel_after
+    
+    // Elastic collision: relative velocity reverses
+    Law ElasticCollision :
+        ballA_vel_after - ballB_vel_after == -(ballA_vel_before - ballB_vel_before)
+}

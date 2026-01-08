@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::{*, ImportDecl};
 use crate::lexer::Token;
 use thiserror::Error;
 
@@ -64,12 +64,38 @@ impl Parser {
     pub fn parse_program(&mut self) -> Result<Program, ParseError> {
         let mut program = Program::new();
         
+        // Parse imports first (must be at top of file)
+        while self.peek() == Some(&Token::Import) {
+            let import = self.parse_import()?;
+            program.imports.push(import);
+        }
+        
+        // Parse boundaries
         while self.peek().is_some() {
             let boundary = self.parse_boundary()?;
             program.boundaries.push(boundary);
         }
         
         Ok(program)
+    }
+    
+    fn parse_import(&mut self) -> Result<ImportDecl, ParseError> {
+        self.expect(Token::Import)?;
+        
+        // Parse the path string: import "std/physics.orth"
+        let path = match self.advance() {
+            Some(Token::StringLiteral(s)) => s,
+            other => return Err(ParseError::Expected {
+                expected: "string literal (import path)".to_string(),
+                found: other,
+            }),
+        };
+        
+        // Parse the alias: as Physics
+        self.expect(Token::As)?;
+        let alias = self.expect_identifier()?;
+        
+        Ok(ImportDecl { path, alias })
     }
     
     fn parse_boundary(&mut self) -> Result<Boundary, ParseError> {

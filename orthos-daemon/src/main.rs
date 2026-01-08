@@ -63,6 +63,7 @@ fn dispatch(state: &mut Option<DaemonState>, request: Request) -> Response {
         "checkpoint" => handle_checkpoint(state, id),
         "constrain" => handle_constrain(state, request.params, id),
         "query" => handle_query(state, request.params, id),
+        "audit" => handle_audit(state, id),
         "restore" => handle_restore(state, id),
         "shutdown" => {
             eprintln!("Shutdown requested. Exiting.");
@@ -187,6 +188,37 @@ fn handle_query(
         })),
         Err(e) => Response::error(id, -32003, e, None),
     }
+}
+
+fn handle_audit(state: &mut Option<DaemonState>, id: Option<u64>) -> Response {
+    let s = match state {
+        Some(s) => s,
+        None => return Response::error(id, -32002, "Not initialized".to_string(), None),
+    };
+    
+    let audit = s.get_goal_audit();
+    
+    // Convert to JSON-friendly format
+    let audit_json: serde_json::Map<String, serde_json::Value> = audit
+        .into_iter()
+        .map(|(name, entry)| {
+            (name, serde_json::json!({
+                "satisfied": entry.satisfied,
+                "weight": entry.weight,
+                "cost": entry.cost
+            }))
+        })
+        .collect();
+    
+    // Calculate totals
+    let total_cost: u64 = audit_json.values()
+        .filter_map(|v| v.get("cost").and_then(|c| c.as_u64()))
+        .sum();
+    
+    Response::success(id, serde_json::json!({
+        "goals": audit_json,
+        "total_cost": total_cost
+    }))
 }
 
 fn handle_restore(state: &mut Option<DaemonState>, id: Option<u64>) -> Response {

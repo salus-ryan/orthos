@@ -23,6 +23,12 @@ pub enum Token {
     #[token("Diode")]
     Diode,
     
+    #[token("import")]
+    Import,
+    
+    #[token("as")]
+    As,
+    
     // Types
     #[token("Int")]
     TypeInt,
